@@ -2,6 +2,7 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path"
@@ -35,7 +36,7 @@ func (u *UploadDownloader) Init() {
 			u.config.UploadDownloaderConfig.SecretKey,
 			"",
 		),
-		Endpoint: aws.String("sgp1.digitaloceanspaces.com"),
+		Endpoint: aws.String(fmt.Sprintf("%s.digitaloceanspaces.com", u.config.UploadDownloaderConfig.Region)),
 	})
 
 	downloader := s3manager.NewDownloader(sess)

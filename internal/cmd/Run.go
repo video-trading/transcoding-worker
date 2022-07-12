@@ -13,7 +13,7 @@ func main() {
 			MessageQueueURL: os.Getenv("message_queue"),
 		},
 		UploadDownloaderConfig: types.UploadDownloaderConfig{
-			Region:    "sgp1",
+			Region:    os.Getenv("region"),
 			AccessKey: os.Getenv("access_key"),
 			SecretKey: os.Getenv("secret_key"),
 		},
