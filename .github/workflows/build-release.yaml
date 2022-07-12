@@ -32,7 +32,7 @@ jobs:
           xgo_version: latest
           go_version: ${{ matrix.go_version }}
           dest: dist
-          prefix: etd
+          prefix: transcoding_worker
           v: true
 
       - name: Release
