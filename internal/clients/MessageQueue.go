@@ -1,4 +1,4 @@
-package client
+package clients
 
 import (
 	"log"
@@ -9,18 +9,18 @@ import (
 )
 
 type MessageQueue struct {
-	config types.Config
+	config types.MessageQueueConfig
 }
 
 // NewMessageQueue creates a message queue
-func NewMessageQueue(config types.Config) *MessageQueue {
+func NewMessageQueue(config types.MessageQueueConfig) *MessageQueue {
 	return &MessageQueue{
 		config: config,
 	}
 }
 
 func (c *MessageQueue) Init() (*amqp.Connection, *amqp.Channel, amqp.Queue) {
-	conn, err := amqp.Dial(c.config.MessageQueueConfig.MessageQueueURL)
+	conn, err := amqp.Dial(c.config.MessageQueueURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %s", err)
 	}
@@ -30,17 +30,12 @@ func (c *MessageQueue) Init() (*amqp.Connection, *amqp.Channel, amqp.Queue) {
 		log.Fatalf("Failed to open channel: %s", err)
 	}
 
-	err = channel.ExchangeDeclare("test", "fanout", true, true, false, false, nil)
-	if err != nil {
-		log.Fatalf("Failed to declare an exchange: %s", err)
-	}
-
 	queue, err := channel.QueueDeclare("", false, false, true, false, nil)
 	if err != nil {
 		log.Fatalf("Failed to declare a queue: %s", err)
 	}
 
-	err = channel.QueueBind(queue.Name, "", "test", false, nil)
+	err = channel.QueueBind(queue.Name, c.config.Topic, "amq.topic", false, nil)
 	if err != nil {
 		log.Fatalf("Failed to bind a queue: %s", err)
 	}
