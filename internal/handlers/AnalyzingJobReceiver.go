@@ -11,37 +11,32 @@ import (
 	"video_transcoding_worker/internal/types"
 )
 
-type TranscodingJobHandler struct {
+type AnalyzingJobHandler struct {
 	messageQueue      *clients.MessageQueue
-	converter         *clients.Converter
 	uploadDownloader  *clients.UploadDownloader
 	cleaner           *clients.Cleaner
 	transcodingClient *clients.TranscodingClient
+	analyzer          *clients.Analyzer
 	conn              *amqp.Connection
 	channel           *amqp.Channel
 	queue             amqp.Queue
 }
 
-func NewTranscodingJobHandler(config types.MessageQueueConfig, converter *clients.Converter,
-	uploadDownloader *clients.UploadDownloader, cleaner *clients.Cleaner, transcodingClient *clients.TranscodingClient) *TranscodingJobHandler {
+func NewAnalyzingJobHandler(config types.MessageQueueConfig,
+	uploadDownloader *clients.UploadDownloader, cleaner *clients.Cleaner,
+	analyzer *clients.Analyzer, transcodingClient *clients.TranscodingClient) *AnalyzingJobHandler {
 	messageQueue := clients.NewMessageQueue(config)
 
-	return &TranscodingJobHandler{
+	return &AnalyzingJobHandler{
 		messageQueue:      messageQueue,
-		converter:         converter,
 		uploadDownloader:  uploadDownloader,
 		cleaner:           cleaner,
 		transcodingClient: transcodingClient,
+		analyzer:          analyzer,
 	}
 }
 
-func failOnError(err error, msg string) {
-	if err != nil {
-		log.Panicf("%s: %s", msg, err)
-	}
-}
-
-func (m *TranscodingJobHandler) Init() {
+func (m *AnalyzingJobHandler) Init() {
 	m.uploadDownloader.Init()
 	conn, channel, queue := m.messageQueue.Init()
 
@@ -50,7 +45,7 @@ func (m *TranscodingJobHandler) Init() {
 	m.queue = queue
 }
 
-func (m *TranscodingJobHandler) Run() {
+func (m *AnalyzingJobHandler) Run() {
 	defer m.conn.Close()
 	defer m.channel.Close()
 
@@ -71,38 +66,39 @@ func (m *TranscodingJobHandler) Run() {
 		for d := range msgs {
 			body := d.Body
 			log.Printf("Receiving message: %s", d.MessageId)
-			var data types.TranscodingInfo
+			var data types.AnalyzingJob
 			err := json.Unmarshal(body, &data)
 			if err != nil {
 				fmt.Printf("Cannot decode: %s", err)
 			}
 			// download file
-			downloadPath, err := m.uploadDownloader.Download(data.OriginalVideoSource)
+			downloadPath, err := m.uploadDownloader.Download(data.Source)
 			if err != nil {
-				log.Printf("Cannot download video: %s", err)
+				log.Printf("Cannot download video: %s\n", err)
+				return
+			}
+			analyzingResult, err := m.analyzer.Analyze(downloadPath, data.VideoId, data.FileName)
+			fmt.Printf("Analyzing result: %v\n", analyzingResult)
+			if err != nil {
+				log.Printf("Cannot analyze video: %s\n", err)
 				return
 			}
 
-			convertedPath, err := m.converter.Convert(downloadPath, data.Quality)
+			err = m.uploadDownloader.Upload(data.Cover, analyzingResult.Cover)
 			if err != nil {
-				log.Printf("Cannot convert video: %s", err)
+				log.Printf("Cannot upload cover: %s\n", err)
 				return
 			}
 
-			err = m.uploadDownloader.Upload(data.Source, convertedPath)
-			if err == nil {
-				err := m.transcodingClient.SubmitFinishedResult(&data)
-				if err != nil {
-					log.Printf("Cannot submit transcoding result: %s", err)
-					return
-				}
-				log.Printf("Successfully upload converted data with resolution %s", data.Quality)
-			} else {
-				log.Printf("Cannot upload converted data: %s", err)
+			err = m.transcodingClient.SubmitAnalyzingResult(analyzingResult)
+			if err != nil {
+				log.Printf("Cannot submit analyzing result: %s\n", err)
+				return
 			}
+			log.Printf("Finished analyzing job\n")
 			//m.cleaner.Clean([]string{
 			//	downloadPath,
-			//	convertedPath,
+			//	analyzingResult.Cover,
 			//})
 		}
 	}()
