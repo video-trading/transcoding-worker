@@ -15,18 +15,18 @@ import (
 )
 
 type UploadDownloader struct {
-	config *types.Config
+	config types.UploadDownloaderConfig
 }
 
-func NewUploadDownloader(config *types.Config) *UploadDownloader {
+func NewUploadDownloader(config types.UploadDownloaderConfig) *UploadDownloader {
 	return &UploadDownloader{
 		config: config,
 	}
 }
 
 func (u *UploadDownloader) Init() {
-	if _, err := os.Stat("download"); os.IsNotExist(err) {
-		os.MkdirAll("download", os.ModePerm)
+	if _, err := os.Stat(u.config.DownloadPath); os.IsNotExist(err) {
+		os.MkdirAll(u.config.DownloadPath, os.ModePerm)
 	}
 }
 
@@ -39,7 +39,7 @@ func (u *UploadDownloader) Download(downloadURL string) (string, error) {
 	}
 	path := fileURL.Path
 	segments := strings.Split(path, "/")
-	fileName := path2.Join("download", segments[len(segments)-1])
+	fileName := path2.Join(u.config.DownloadPath, segments[len(segments)-1])
 
 	// Create blank file
 	file, err := os.Create(fileName)
@@ -66,7 +66,7 @@ func (u *UploadDownloader) Download(downloadURL string) (string, error) {
 
 	defer file.Close()
 
-	fmt.Printf("Downloaded a file %s with size %d", fileName, size)
+	fmt.Printf("Downloaded a file %s with size %d\n", fileName, size)
 	return fileName, nil
 }
 
@@ -91,7 +91,7 @@ func (u *UploadDownloader) Upload(uploadURL string, fileName string) error {
 	content, err := ioutil.ReadAll(res.Body)
 
 	if res.StatusCode != http.StatusOK {
-		err = fmt.Errorf("bad status: %s, with content: %s", res.Status, string(content))
+		err = fmt.Errorf("bad status: %s, with content: %s\n", res.Status, string(content))
 		return err
 	}
 	return nil

@@ -16,11 +16,14 @@ import (
 
 type Converter struct {
 	resolution types.Resolution
+	config     types.ConverterConfig
 }
 
-// NewConverter Create a new ffmpeg client
-func NewConverter() *Converter {
-	return &Converter{}
+// NewConverter Creates a new ffmpeg client
+func NewConverter(config types.ConverterConfig) *Converter {
+	return &Converter{
+		config: config,
+	}
 }
 
 // getOutputName will generate a random unique output filename
@@ -52,9 +55,9 @@ func (f *Converter) getResolution(resolution types.Resolution) string {
 // Convert input file to an output file and returns the output filename
 func (f *Converter) Convert(filename string, resolution types.Resolution) (string, error) {
 	f.resolution = resolution
-	outputName := path.Join("converted", f.getOutputName())
-	if _, err := os.Stat("converted"); errors.Is(err, os.ErrNotExist) {
-		err := os.MkdirAll("converted", os.ModePerm)
+	outputName := path.Join(f.config.OutputFolder, f.getOutputName())
+	if _, err := os.Stat(f.config.OutputFolder); errors.Is(err, os.ErrNotExist) {
+		err := os.MkdirAll(f.config.OutputFolder, os.ModePerm)
 		if err != nil {
 			log.Printf("Cannot create directory: %s", err)
 		}
