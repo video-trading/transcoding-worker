@@ -57,22 +57,22 @@ func (a *Analyzer) screenshot(filename string) (string, error) {
 	return cover, nil
 }
 
-func (a *Analyzer) getVideoResolution(height int) (types.Resolution, error) {
-	if height < 144 {
+func (a *Analyzer) GetVideoResolution(height int) (types.Resolution, error) {
+	if height >= 144 && height < 240 {
 		return types.Resolution144p, nil
-	} else if height < 240 {
+	} else if height >= 240 && height < 360 {
 		return types.Resolution240p, nil
-	} else if height < 360 {
+	} else if height >= 360 && height < 480 {
 		return types.Resolution360p, nil
-	} else if height < 480 {
+	} else if height >= 480 && height < 720 {
 		return types.Resolution480p, nil
-	} else if height < 720 {
+	} else if height >= 720 && height < 1080 {
 		return types.Resolution720p, nil
-	} else if height < 1080 {
+	} else if height >= 1080 && height < 1440 {
 		return types.Resolution1080p, nil
-	} else if height < 1440 {
+	} else if height >= 1440 && height < 2160 {
 		return types.Resolution1440p, nil
-	} else if height <= 2160 {
+	} else if height >= 2160 {
 		return types.Resolution2160p, nil
 	} else {
 		return types.ResolutionUnknown, fmt.Errorf("unknown resolution")
@@ -100,7 +100,7 @@ func (a *Analyzer) Analyze(filename string, videoId string, uploadFileName strin
 	}
 
 	stream := data.Streams[0]
-	resolution, err := a.getVideoResolution(stream.Height)
+	resolution, err := a.GetVideoResolution(stream.Height)
 	if err != nil {
 		return nil, err
 	}
