@@ -10,7 +10,6 @@ import (
 	"os"
 	path2 "path"
 	"strings"
-
 	"video_transcoding_worker/internal/types"
 )
 
@@ -18,18 +17,21 @@ type UploadDownloader struct {
 	config types.UploadDownloaderConfig
 }
 
+// NewUploadDownloader Creates a new upload downloader
 func NewUploadDownloader(config types.UploadDownloaderConfig) *UploadDownloader {
 	return &UploadDownloader{
 		config: config,
 	}
 }
 
+// Init initializes the client
 func (u *UploadDownloader) Init() {
 	if _, err := os.Stat(u.config.DownloadPath); os.IsNotExist(err) {
 		os.MkdirAll(u.config.DownloadPath, os.ModePerm)
 	}
 }
 
+// Download the file using the signed url. Key is the file name like a/b/c.png is the key from the pre-signed url object
 func (u *UploadDownloader) Download(downloadURL string) (string, error) {
 
 	// Build fileName from fullPath
@@ -70,8 +72,9 @@ func (u *UploadDownloader) Download(downloadURL string) (string, error) {
 	return fileName, nil
 }
 
+// Upload the file using the signed url
 func (u *UploadDownloader) Upload(uploadURL string, fileName string) error {
-	file, err := ioutil.ReadFile(fileName)
+	file, err := os.ReadFile(fileName)
 	if err != nil {
 		err = fmt.Errorf("unable to readfile %s", fileName)
 		return err

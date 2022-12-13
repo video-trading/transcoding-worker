@@ -25,20 +25,53 @@ func (c *MessageQueue) Init() (*amqp.Connection, *amqp.Channel, amqp.Queue) {
 		log.Fatalf("Failed to connect to RabbitMQ: %s", err)
 	}
 
-	channel, err := conn.Channel()
+	// connect to the exchange and routing key
+	ch, err := conn.Channel()
 	if err != nil {
-		log.Fatalf("Failed to open channel: %s", err)
+		log.Fatalf("Failed to open a channel: %s", err)
 	}
 
-	queue, err := channel.QueueDeclare("", false, false, true, false, nil)
+	// declare the exchange
+	err = ch.ExchangeDeclare(
+		string(c.config.Exchange),
+		"topic",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+
+	if err != nil {
+		log.Fatalf("Failed to declare an exchange: %s", err)
+	}
+
+	// declare the queue
+	q, err := ch.QueueDeclare(
+		string(c.config.Exchange), // name
+		true,                      // durable
+		false,                     // delete when unused
+		true,                      // exclusive
+		false,                     // no-wait
+		nil,                       // arguments
+	)
+
 	if err != nil {
 		log.Fatalf("Failed to declare a queue: %s", err)
 	}
 
-	err = channel.QueueBind(queue.Name, c.config.Topic, "amq.topic", false, nil)
+	// bind the queue to the exchange
+	err = ch.QueueBind(
+		q.Name,
+		string(c.config.RoutingKey),
+		string(c.config.Exchange),
+		false,
+		nil,
+	)
+
 	if err != nil {
 		log.Fatalf("Failed to bind a queue: %s", err)
 	}
 
-	return conn, channel, queue
+	return conn, ch, q
 }

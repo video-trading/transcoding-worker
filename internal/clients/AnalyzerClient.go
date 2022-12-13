@@ -30,11 +30,12 @@ func NewAnalyzer(config types.AnalyzerConfig) *Analyzer {
 // getArgs will generate a ffmpeg arguments based on the system
 func (a *Analyzer) getArgs() map[string]interface{} {
 	m := make(map[string]interface{})
-	m["ss"] = "00:00:03"
+	m["ss"] = "00:00:00"
 	m["frames:v"] = "1"
 	return m
 }
 
+// screenshot will generate a screenshot for the video
 func (a *Analyzer) screenshot(filename string) (string, error) {
 	fmt.Printf("Taking screenshot for file: %s\n", filename)
 	id := uuid.New()
@@ -56,6 +57,29 @@ func (a *Analyzer) screenshot(filename string) (string, error) {
 	return cover, nil
 }
 
+func (a *Analyzer) getVideoResolution(height int) (types.Resolution, error) {
+	if height < 144 {
+		return types.Resolution144p, nil
+	} else if height < 240 {
+		return types.Resolution240p, nil
+	} else if height < 360 {
+		return types.Resolution360p, nil
+	} else if height < 480 {
+		return types.Resolution480p, nil
+	} else if height < 720 {
+		return types.Resolution720p, nil
+	} else if height < 1080 {
+		return types.Resolution1080p, nil
+	} else if height < 1440 {
+		return types.Resolution1440p, nil
+	} else if height <= 2160 {
+		return types.Resolution2160p, nil
+	} else {
+		return types.ResolutionUnknown, fmt.Errorf("unknown resolution")
+	}
+}
+
+// Analyze will analyze the video and generate a AnalyzingResult
 func (a *Analyzer) Analyze(filename string, videoId string, uploadFileName string) (*types.AnalyzingResult, error) {
 	ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFn()
@@ -76,11 +100,15 @@ func (a *Analyzer) Analyze(filename string, videoId string, uploadFileName strin
 	}
 
 	stream := data.Streams[0]
+	resolution, err := a.getVideoResolution(stream.Height)
+	if err != nil {
+		return nil, err
+	}
 
 	result := types.AnalyzingResult{
 		VideoId:   videoId,
 		Length:    data.Format.DurationSeconds,
-		Quality:   fmt.Sprintf("%v", stream.Height),
+		Quality:   resolution,
 		FrameRate: stream.AvgFrameRate,
 		FileName:  uploadFileName,
 		Cover:     cover,

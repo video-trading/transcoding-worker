@@ -48,6 +48,7 @@ func (f *Converter) getArgs() (map[string]interface{}, error) {
 	return m, nil
 }
 
+// getResolution will generate a ffmpeg resolution based on the system
 func (f *Converter) getResolution(resolution types.Resolution) string {
 	return fmt.Sprintf("scale=-1:%s", resolution)
 }

@@ -77,6 +77,7 @@ func (m *TranscodingJobHandler) Run() {
 				fmt.Printf("Cannot decode: %s", err)
 			}
 			// download file
+			//TODO: Fix this
 			downloadPath, err := m.uploadDownloader.Download(data.OriginalVideoSource)
 			if err != nil {
 				log.Printf("Cannot download video: %s", err)
@@ -100,10 +101,6 @@ func (m *TranscodingJobHandler) Run() {
 			} else {
 				log.Printf("Cannot upload converted data: %s", err)
 			}
-			//m.cleaner.Clean([]string{
-			//	downloadPath,
-			//	convertedPath,
-			//})
 		}
 	}()
 
