@@ -19,7 +19,7 @@ func NewMessageQueue(config types.MessageQueueConfig) *MessageQueue {
 	}
 }
 
-func (c *MessageQueue) Init() (*amqp.Connection, *amqp.Channel, amqp.Queue) {
+func (c *MessageQueue) Init(name string) (*amqp.Connection, *amqp.Channel, amqp.Queue) {
 	conn, err := amqp.Dial(c.config.MessageQueueURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %s", err)
@@ -48,12 +48,12 @@ func (c *MessageQueue) Init() (*amqp.Connection, *amqp.Channel, amqp.Queue) {
 
 	// declare the queue
 	q, err := ch.QueueDeclare(
-		string(c.config.Exchange), // name
-		true,                      // durable
-		false,                     // delete when unused
-		true,                      // exclusive
-		false,                     // no-wait
-		nil,                       // arguments
+		name,  // name
+		true,  // durable
+		false, // delete when unused
+		false, // exclusive
+		false, // no-wait
+		nil,   // arguments
 	)
 
 	if err != nil {

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"video_transcoding_worker/internal/types"
@@ -23,17 +22,28 @@ func NewTranscodingClient(config types.TranscodingConfig) *TranscodingClient {
 }
 
 // SubmitFinishedResult SubmitTranscodingResult will submit the transcoding result to the transcoding service
-func (t *TranscodingClient) SubmitFinishedResult(transcodingInfo *types.TranscodingInfo) error {
+func (t *TranscodingClient) SubmitFinishedResult(id string, transcodingInfo *types.TranscodingResult) error {
 	transcodingInfo.Status = types.COMPLETED
 	jsonValue, _ := json.Marshal(transcodingInfo)
-	requestURL := fmt.Sprintf("%s/video/transcoding/result", t.config.URL)
-	response, err := http.Post(requestURL, "application/json", bytes.NewBuffer(jsonValue))
+	requestURL := fmt.Sprintf("%s/transcoding/%s", t.config.URL, id)
+
+	// Send http request with JWT token
+	client := &http.Client{}
+	req, err := http.NewRequest("PATCH", requestURL, bytes.NewBuffer(jsonValue))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.config.JWTToken))
+	req.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(req)
+
 	if err != nil {
 		return err
 	}
 
 	if response.StatusCode != http.StatusOK {
-		content, _ := ioutil.ReadAll(response.Body)
+		content, _ := io.ReadAll(response.Body)
 		err := fmt.Errorf("get status %s with error %s", response.Status, content)
 		return err
 	}

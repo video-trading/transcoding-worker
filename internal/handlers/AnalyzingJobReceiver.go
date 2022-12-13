@@ -38,7 +38,7 @@ func NewAnalyzingJobHandler(config types.MessageQueueConfig,
 
 func (m *AnalyzingJobHandler) Init() {
 	m.uploadDownloader.Init()
-	conn, channel, queue := m.messageQueue.Init()
+	conn, channel, queue := m.messageQueue.Init("analyzing_job")
 
 	m.conn = conn
 	m.channel = channel
@@ -61,10 +61,13 @@ func (m *AnalyzingJobHandler) Run() {
 
 	go func() {
 		for d := range msgs {
-			log.Printf("Receiving message: %s", d.MessageId)
+			log.Println("Receiving analyzing job")
 			body := d.Body
 			if m.handle(body) {
 				log.Printf("Failed to handle message: %s", d.MessageId)
+				if err != nil {
+					log.Printf("Failed to reject message: %s", d.MessageId)
+				}
 			}
 		}
 	}()
@@ -83,7 +86,7 @@ func (m *AnalyzingJobHandler) handle(body []byte) bool {
 	var videoPath string
 
 	defer func() {
-		log.Println("Cleaning up")
+		log.Println("Cleaning up analyzing job")
 		m.cleaner.Clean([]string{
 			videoPath,
 			coverPath,

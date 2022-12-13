@@ -17,7 +17,7 @@ func main() {
 			DownloadPath: "download",
 		},
 		TranscodingConfig: types.TranscodingConfig{
-			URL:      "http://localhost:3000",
+			URL:      os.Getenv("ENDPOINT"),
 			JWTToken: os.Getenv("JWT_TOKEN"),
 		},
 		AnalyzerConfig: types.AnalyzerConfig{
@@ -28,23 +28,23 @@ func main() {
 		},
 	}
 
-	//converterClient := clients.NewConverter(config.ConverterConfig)
+	converterClient := clients.NewConverter(config.ConverterConfig)
 	uploadDownloader := clients.NewUploadDownloader(config.UploadDownloaderConfig)
 	cleaner := clients.NewCleaner()
 	transcodingClient := clients.NewTranscodingClient(config.TranscodingConfig)
 	analyzer := clients.NewAnalyzer(config.AnalyzerConfig)
 
-	//go func() {
-	//	transcodingConfig := types.MessageQueueConfig{
-	//		MessageQueueURL: os.Getenv("message_queue"),
-	//		Exchange:        constant.TranscodingExchange,
-	//		RoutingKey:      constant.TranscodeRoutingKey,
-	//	}
-	//	fmt.Println("Setting up transcoding handler")
-	//	transcodingJobHandler := handlers.NewTranscodingJobHandler(transcodingConfig, converterClient, uploadDownloader, cleaner, transcodingClient)
-	//	transcodingJobHandler.Init()
-	//	transcodingJobHandler.Run()
-	//}()
+	go func() {
+		transcodingConfig := types.MessageQueueConfig{
+			MessageQueueURL: os.Getenv("MESSAGE_QUEUE"),
+			Exchange:        constant.TranscodingExchange,
+			RoutingKey:      constant.TranscodeRoutingKey,
+		}
+		fmt.Println("Setting up transcoding handler")
+		transcodingJobHandler := handlers.NewTranscodingJobHandler(transcodingConfig, converterClient, uploadDownloader, cleaner, transcodingClient)
+		transcodingJobHandler.Init()
+		transcodingJobHandler.Run()
+	}()
 
 	go func() {
 		analyzingConfig := types.MessageQueueConfig{

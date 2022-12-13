@@ -43,7 +43,7 @@ func failOnError(err error, msg string) {
 
 func (m *TranscodingJobHandler) Init() {
 	m.uploadDownloader.Init()
-	conn, channel, queue := m.messageQueue.Init()
+	conn, channel, queue := m.messageQueue.Init("transcoding")
 
 	m.conn = conn
 	m.channel = channel
@@ -70,40 +70,67 @@ func (m *TranscodingJobHandler) Run() {
 	go func() {
 		for d := range msgs {
 			body := d.Body
-			log.Printf("Receiving message: %s", d.MessageId)
-			var data types.TranscodingInfo
-			err := json.Unmarshal(body, &data)
-			if err != nil {
-				fmt.Printf("Cannot decode: %s", err)
-			}
-			// download file
-			//TODO: Fix this
-			downloadPath, err := m.uploadDownloader.Download(data.OriginalVideoSource)
-			if err != nil {
-				log.Printf("Cannot download video: %s", err)
-				return
-			}
-
-			convertedPath, err := m.converter.Convert(downloadPath, data.Quality)
-			if err != nil {
-				log.Printf("Cannot convert video: %s", err)
-				return
-			}
-
-			err = m.uploadDownloader.Upload(data.Source, convertedPath)
-			if err == nil {
-				err := m.transcodingClient.SubmitFinishedResult(&data)
-				if err != nil {
-					log.Printf("Cannot submit transcoding result: %s", err)
-					return
-				}
-				log.Printf("Successfully upload converted data with resolution %s", data.Quality)
-			} else {
-				log.Printf("Cannot upload converted data: %s", err)
+			log.Println("Receiving a transcoding job")
+			if m.handle(d, body) {
+				log.Printf("Failed to handle message: %s", d.MessageId)
 			}
 		}
 	}()
 
 	log.Printf("Listening to the job request")
 	<-forever
+}
+
+func (m *TranscodingJobHandler) handle(d amqp.Delivery, body []byte) bool {
+	var videoPath string
+	var convertedVideoPath string
+	var uploadError error
+
+	defer func() {
+		log.Println("Cleaning up transcoding job")
+		m.cleaner.Clean([]string{
+			videoPath,
+			convertedVideoPath,
+		})
+	}()
+	var data types.TranscodingInfo
+	err := json.Unmarshal(body, &data)
+	if err != nil {
+		fmt.Printf("Cannot decode: %s", err)
+	}
+	// download file
+	videoPath, err = m.uploadDownloader.Download(data.VideoUrl.PreviewUrl)
+	if err != nil {
+		log.Printf("Cannot download video: %s", err)
+		return true
+	}
+	convertedVideoPath, convertionError := m.converter.Convert(videoPath, data.TargetQuality)
+	if convertionError != nil {
+		log.Printf("Cannot convert video: %s", err)
+	}
+
+	if convertionError == nil {
+		uploadError = m.uploadDownloader.Upload(data.TranscodingUrl.Url, convertedVideoPath)
+		if uploadError != nil {
+			log.Printf("Cannot upload video: %s", err)
+		}
+	}
+
+	// send transcoding result
+	result := types.TranscodingResult{
+		Quality: data.TargetQuality,
+		Status:  types.COMPLETED,
+	}
+
+	if convertionError != nil || uploadError != nil {
+		result.Status = types.FAILED
+	}
+
+	err = m.transcodingClient.SubmitFinishedResult(data.VideoId, &result)
+	if err != nil {
+		log.Printf("Cannot submit transcoding result: %s", err)
+		return true
+	}
+	log.Printf("Successfully upload converted data with resolution %s", data.TargetQuality)
+	return convertionError != nil || uploadError != nil
 }

@@ -3,7 +3,7 @@
 Transcode video using `ffmpeg`
 
 ```
-access_key=
-secret_key=
-message_queue=
+JWT_TOKEN=
+MESSAGE_QUEUE=
+ENDPOINT=
 ```
