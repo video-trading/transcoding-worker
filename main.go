@@ -1,62 +1,44 @@
 package main
 
 import (
-	"fmt"
-	"os"
-
-	"video_transcoding_worker/internal/clients"
-	"video_transcoding_worker/internal/constant"
-	"video_transcoding_worker/internal/handlers"
-	"video_transcoding_worker/internal/types"
+	"github.com/spf13/viper"
+	"log"
+	"video_transcoding_worker/worker"
 )
 
+func Init() {
+	err := viper.BindEnv("endpoint", "endpoint")
+	if err != nil {
+		return
+	}
+	err = viper.BindEnv("jwt_token", "jwt_token")
+	if err != nil {
+		return
+	}
+	err = viper.BindEnv("message_queue", "message_queue")
+	if err != nil {
+		return
+	}
+	viper.AutomaticEnv()
+
+	viper.SetConfigType("yaml")
+	viper.SetConfigName("config")
+	viper.AddConfigPath(".")
+	err = viper.ReadInConfig()
+	if err != nil {
+		log.Printf("Error reading config file, %s", err)
+	}
+}
+
 func main() {
-	var forever chan struct{}
-	config := types.Config{
-		UploadDownloaderConfig: types.UploadDownloaderConfig{
-			DownloadPath: "download",
-		},
-		TranscodingConfig: types.TranscodingConfig{
-			URL:      os.Getenv("ENDPOINT"),
-			JWTToken: os.Getenv("JWT_TOKEN"),
-		},
-		AnalyzerConfig: types.AnalyzerConfig{
-			CoverPath: "cover",
-		},
-		ConverterConfig: types.ConverterConfig{
-			OutputFolder: "coverted",
-		},
+	Init()
+	endpoint := viper.GetString("endpoint")
+	jwtToken := viper.GetString("jwt_token")
+	messageQueue := viper.GetString("message_queue")
+
+	if len(endpoint) == 0 || len(jwtToken) == 0 || len(messageQueue) == 0 {
+		log.Fatal("Please provide all required environment variables")
 	}
 
-	converterClient := clients.NewConverter(config.ConverterConfig)
-	uploadDownloader := clients.NewUploadDownloader(config.UploadDownloaderConfig)
-	cleaner := clients.NewCleaner()
-	transcodingClient := clients.NewTranscodingClient(config.TranscodingConfig)
-	analyzer := clients.NewAnalyzer(config.AnalyzerConfig)
-
-	go func() {
-		transcodingConfig := types.MessageQueueConfig{
-			MessageQueueURL: os.Getenv("MESSAGE_QUEUE"),
-			Exchange:        constant.TranscodingExchange,
-			RoutingKey:      constant.TranscodeRoutingKey,
-		}
-		fmt.Println("Setting up transcoding handler")
-		transcodingJobHandler := handlers.NewTranscodingJobHandler(transcodingConfig, converterClient, uploadDownloader, cleaner, transcodingClient)
-		transcodingJobHandler.Init()
-		transcodingJobHandler.Run()
-	}()
-
-	go func() {
-		analyzingConfig := types.MessageQueueConfig{
-			MessageQueueURL: os.Getenv("MESSAGE_QUEUE"),
-			Exchange:        constant.AnalyzingExchange,
-			RoutingKey:      constant.AnalyzeRoutingKey,
-		}
-
-		fmt.Println("Setting up analyzing job handler")
-		analyzingHandler := handlers.NewAnalyzingJobHandler(analyzingConfig, uploadDownloader, cleaner, analyzer, transcodingClient)
-		analyzingHandler.Init()
-		analyzingHandler.Run()
-	}()
-	<-forever
+	worker.Setup(endpoint, jwtToken, messageQueue)
 }
