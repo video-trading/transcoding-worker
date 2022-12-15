@@ -6,3 +6,4 @@ cover
 coverted
 *.plist
 *.xcframework
+config.yaml
