@@ -49,7 +49,7 @@ func (m *AnalyzingJobHandler) Run() {
 	msgs, err := m.channel.Consume(
 		m.queue.Name, // queue
 		"",           // consumer
-		true,         // auto-ack
+		false,        // auto-ack
 		false,        // exclusive
 		false,        // no-local
 		false,        // no-wait
@@ -65,8 +65,15 @@ func (m *AnalyzingJobHandler) Run() {
 			body := d.Body
 			if m.handle(body) {
 				log.Printf("Failed to handle message: %s", d.MessageId)
+				// request to retry
+				err = d.Nack(false, true)
 				if err != nil {
 					log.Printf("Failed to reject message: %s", d.MessageId)
+				}
+			} else {
+				err := d.Ack(false)
+				if err != nil {
+					log.Printf("Failed to ack message: %s", d.MessageId)
 				}
 			}
 		}
@@ -105,6 +112,11 @@ func (m *AnalyzingJobHandler) handle(body []byte) bool {
 		return true
 	}
 	analyzingResult, err := m.analyzer.Analyze(videoPath, data.VideoId, data.Video.Key)
+	if err != nil {
+		log.Printf("Cannot analyze video: %s\n", err)
+		return true
+	}
+
 	fmt.Printf("Analyzing result: %v\n", analyzingResult)
 	coverPath = analyzingResult.Cover
 	if err != nil {

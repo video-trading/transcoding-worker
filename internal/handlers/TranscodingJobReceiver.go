@@ -3,9 +3,8 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-
 	amqp "github.com/rabbitmq/amqp091-go"
+	"log"
 
 	"video_transcoding_worker/internal/clients"
 	"video_transcoding_worker/internal/types"
@@ -57,7 +56,7 @@ func (m *TranscodingJobHandler) Run() {
 	msgs, err := m.channel.Consume(
 		m.queue.Name, // queue
 		"",           // consumer
-		true,         // auto-ack
+		false,        // auto-ack
 		false,        // exclusive
 		false,        // no-local
 		false,        // no-wait
@@ -73,6 +72,9 @@ func (m *TranscodingJobHandler) Run() {
 			log.Println("Receiving a transcoding job")
 			if m.handle(d, body) {
 				log.Printf("Failed to handle message: %s", d.MessageId)
+				d.Nack(false, true)
+			} else {
+				d.Ack(false)
 			}
 		}
 	}()

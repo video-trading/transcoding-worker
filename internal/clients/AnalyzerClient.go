@@ -79,6 +79,16 @@ func (a *Analyzer) GetVideoResolution(height int) (types.Resolution, error) {
 	}
 }
 
+// getStream will get the video stream from the streams
+func (a *Analyzer) getStream(streams []*ffprobe.Stream) (*ffprobe.Stream, error) {
+	for _, stream := range streams {
+		if stream.CodecType == "video" {
+			return stream, nil
+		}
+	}
+	return nil, fmt.Errorf("cannot find video stream")
+}
+
 // Analyze will analyze the video and generate a AnalyzingResult
 func (a *Analyzer) Analyze(filename string, videoId string, uploadFileName string) (*types.AnalyzingResult, error) {
 	ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Second)
@@ -100,7 +110,12 @@ func (a *Analyzer) Analyze(filename string, videoId string, uploadFileName strin
 	}
 
 	stream := data.Streams[0]
-	resolution, err := a.GetVideoResolution(stream.Height)
+	videoStream, err := a.getStream(data.Streams)
+	if err != nil {
+		return nil, err
+	}
+
+	resolution, err := a.GetVideoResolution(videoStream.Height)
 	if err != nil {
 		return nil, err
 	}
