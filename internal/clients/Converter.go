@@ -36,10 +36,9 @@ func (f *Converter) getOutputName() string {
 func (f *Converter) getArgs() (map[string]interface{}, error) {
 	m := make(map[string]interface{})
 
+	// check if it is running in test mode
 	if runtime.GOOS == types.MacOS {
 		m["c:v"] = "h264_videotoolbox"
-	} else {
-		return m, fmt.Errorf("OS %s is not supported", runtime.GOOS)
 	}
 
 	m["vf"] = f.getResolution(f.resolution)
@@ -48,6 +47,7 @@ func (f *Converter) getArgs() (map[string]interface{}, error) {
 	return m, nil
 }
 
+// getResolution will generate a ffmpeg resolution based on the system
 func (f *Converter) getResolution(resolution types.Resolution) string {
 	return fmt.Sprintf("scale=-1:%s", resolution)
 }

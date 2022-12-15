@@ -1,5 +1,7 @@
 package types
 
+import "video_transcoding_worker/internal/constant"
+
 type Config struct {
 	UploadDownloaderConfig UploadDownloaderConfig
 	TranscodingConfig      TranscodingConfig
@@ -13,14 +15,16 @@ type UploadDownloaderConfig struct {
 
 type MessageQueueConfig struct {
 	MessageQueueURL string
-	Topic           string
+	Exchange        constant.Exchange
+	RoutingKey      constant.RoutingKey
 }
 type ConverterConfig struct {
 	OutputFolder string
 }
 
 type TranscodingConfig struct {
-	URL string
+	URL      string
+	JWTToken string
 }
 
 type AnalyzerConfig struct {

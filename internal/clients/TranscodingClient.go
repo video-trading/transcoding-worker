@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"video_transcoding_worker/internal/types"
@@ -14,23 +14,36 @@ type TranscodingClient struct {
 	config types.TranscodingConfig
 }
 
+// NewTranscodingClient Creates a new transcoding client for submitting transcoding result and analyzing result
 func NewTranscodingClient(config types.TranscodingConfig) *TranscodingClient {
 	return &TranscodingClient{
 		config: config,
 	}
 }
 
-func (t *TranscodingClient) SubmitFinishedResult(transcodingInfo *types.TranscodingInfo) error {
-	transcodingInfo.Status = types.Uploaded
+// SubmitFinishedResult SubmitTranscodingResult will submit the transcoding result to the transcoding service
+func (t *TranscodingClient) SubmitFinishedResult(id string, transcodingInfo *types.TranscodingResult) error {
+	transcodingInfo.Status = types.COMPLETED
 	jsonValue, _ := json.Marshal(transcodingInfo)
-	requestURL := fmt.Sprintf("%s/video/transcoding/result", t.config.URL)
-	response, err := http.Post(requestURL, "application/json", bytes.NewBuffer(jsonValue))
+	requestURL := fmt.Sprintf("%s/transcoding/%s", t.config.URL, id)
+
+	// Send http request with JWT token
+	client := &http.Client{}
+	req, err := http.NewRequest("PATCH", requestURL, bytes.NewBuffer(jsonValue))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.config.JWTToken))
+	req.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(req)
+
 	if err != nil {
 		return err
 	}
 
 	if response.StatusCode != http.StatusOK {
-		content, _ := ioutil.ReadAll(response.Body)
+		content, _ := io.ReadAll(response.Body)
 		err := fmt.Errorf("get status %s with error %s", response.Status, content)
 		return err
 	}
@@ -38,16 +51,26 @@ func (t *TranscodingClient) SubmitFinishedResult(transcodingInfo *types.Transcod
 	return nil
 }
 
+// SubmitAnalyzingResult Submit the analyzing result to the transcoding service
 func (t *TranscodingClient) SubmitAnalyzingResult(analyzingResult *types.AnalyzingResult) error {
 	jsonValue, _ := json.Marshal(analyzingResult)
-	requestURL := fmt.Sprintf("%s/video/transcoding/analyzing", t.config.URL)
-	response, err := http.Post(requestURL, "application/json", bytes.NewBuffer(jsonValue))
+	requestURL := fmt.Sprintf("%s/video/%s/analyzing/result", t.config.URL, analyzingResult.VideoId)
+
+	// Send http request with JWT token
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(jsonValue))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.config.JWTToken))
+	req.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 
-	if response.StatusCode != http.StatusOK {
-		content, _ := ioutil.ReadAll(response.Body)
+	if response.StatusCode != http.StatusCreated {
+		content, _ := io.ReadAll(response.Body)
 		err := fmt.Errorf("get status %s with error %s", response.Status, content)
 		return err
 	}

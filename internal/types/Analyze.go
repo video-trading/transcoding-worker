@@ -10,8 +10,20 @@ type AnalyzingResult struct {
 }
 
 type AnalyzingJob struct {
-	VideoId  string `json:"videoId"`
-	Cover    string `json:"cover"`
-	Source   string `json:"source"`
-	FileName string `json:"fileName"`
+	// VideoId is the id of the video to be analyzed.
+	VideoId string `json:"videoId"`
+	// Video is the video to be analyzed.
+	Video SignedUrl `json:"video"`
+	// Thumbnail is the thumbnail for us to upload.
+	Thumbnail SignedUrl `json:"thumbnail"`
+}
+
+// SignedUrl is a signed url for a file.
+type SignedUrl struct {
+	// Url is the signed url and granted PUT permission.
+	Url string `json:"url"`
+	// Key is the file name.
+	Key string `json:"key"`
+	// PreviewUrl is the signed url and granted GET permission.
+	PreviewUrl string `json:"previewUrl"`
 }

@@ -38,7 +38,7 @@ func NewAnalyzingJobHandler(config types.MessageQueueConfig,
 
 func (m *AnalyzingJobHandler) Init() {
 	m.uploadDownloader.Init()
-	conn, channel, queue := m.messageQueue.Init()
+	conn, channel, queue := m.messageQueue.Init("analyzing_job")
 
 	m.conn = conn
 	m.channel = channel
@@ -46,9 +46,6 @@ func (m *AnalyzingJobHandler) Init() {
 }
 
 func (m *AnalyzingJobHandler) Run() {
-	defer m.conn.Close()
-	defer m.channel.Close()
-
 	msgs, err := m.channel.Consume(
 		m.queue.Name, // queue
 		"",           // consumer
@@ -64,45 +61,68 @@ func (m *AnalyzingJobHandler) Run() {
 
 	go func() {
 		for d := range msgs {
+			log.Println("Receiving analyzing job")
 			body := d.Body
-			log.Printf("Receiving message: %s", d.MessageId)
-			var data types.AnalyzingJob
-			err := json.Unmarshal(body, &data)
-			if err != nil {
-				fmt.Printf("Cannot decode: %s", err)
+			if m.handle(body) {
+				log.Printf("Failed to handle message: %s", d.MessageId)
+				if err != nil {
+					log.Printf("Failed to reject message: %s", d.MessageId)
+				}
 			}
-			// download file
-			downloadPath, err := m.uploadDownloader.Download(data.Source)
-			if err != nil {
-				log.Printf("Cannot download video: %s\n", err)
-				return
-			}
-			analyzingResult, err := m.analyzer.Analyze(downloadPath, data.VideoId, data.FileName)
-			fmt.Printf("Analyzing result: %v\n", analyzingResult)
-			if err != nil {
-				log.Printf("Cannot analyze video: %s\n", err)
-				return
-			}
-
-			err = m.uploadDownloader.Upload(data.Cover, analyzingResult.Cover)
-			if err != nil {
-				log.Printf("Cannot upload cover: %s\n", err)
-				return
-			}
-
-			err = m.transcodingClient.SubmitAnalyzingResult(analyzingResult)
-			if err != nil {
-				log.Printf("Cannot submit analyzing result: %s\n", err)
-				return
-			}
-			log.Printf("Finished analyzing job\n")
-			//m.cleaner.Clean([]string{
-			//	downloadPath,
-			//	analyzingResult.Cover,
-			//})
 		}
 	}()
 
 	log.Printf("Listening to the job request")
 	<-forever
+}
+
+// handle handles the message and will return true if there is an error
+func (m *AnalyzingJobHandler) handle(body []byte) bool {
+	var data types.AnalyzingJob
+
+	// path for the cover
+	var coverPath string
+	// path for the video
+	var videoPath string
+
+	defer func() {
+		log.Println("Cleaning up analyzing job")
+		m.cleaner.Clean([]string{
+			videoPath,
+			coverPath,
+		})
+	}()
+
+	err := json.Unmarshal(body, &data)
+	if err != nil {
+		fmt.Printf("Cannot decode: %s", err)
+		return true
+	}
+	// download file
+	videoPath, err = m.uploadDownloader.Download(data.Video.PreviewUrl)
+	if err != nil {
+		log.Printf("Cannot download video: %s\n", err)
+		return true
+	}
+	analyzingResult, err := m.analyzer.Analyze(videoPath, data.VideoId, data.Video.Key)
+	fmt.Printf("Analyzing result: %v\n", analyzingResult)
+	coverPath = analyzingResult.Cover
+	if err != nil {
+		log.Printf("Cannot analyze video: %s\n", err)
+		return true
+	}
+
+	err = m.uploadDownloader.Upload(data.Thumbnail.Url, analyzingResult.Cover)
+	if err != nil {
+		log.Printf("Cannot upload cover: %s\n", err)
+		return true
+	}
+
+	err = m.transcodingClient.SubmitAnalyzingResult(analyzingResult)
+	if err != nil {
+		log.Printf("Cannot submit analyzing result: %s\n", err)
+		return true
+	}
+	log.Printf("Finished analyzing job\n")
+	return false
 }

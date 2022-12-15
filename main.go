@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"video_transcoding_worker/internal/channels"
 	"video_transcoding_worker/internal/clients"
+	"video_transcoding_worker/internal/constant"
 	"video_transcoding_worker/internal/handlers"
 	"video_transcoding_worker/internal/types"
 )
@@ -17,7 +17,8 @@ func main() {
 			DownloadPath: "download",
 		},
 		TranscodingConfig: types.TranscodingConfig{
-			URL: "http://localhost:8080",
+			URL:      os.Getenv("ENDPOINT"),
+			JWTToken: os.Getenv("JWT_TOKEN"),
 		},
 		AnalyzerConfig: types.AnalyzerConfig{
 			CoverPath: "cover",
@@ -35,8 +36,9 @@ func main() {
 
 	go func() {
 		transcodingConfig := types.MessageQueueConfig{
-			MessageQueueURL: os.Getenv("message_queue"),
-			Topic:           channels.Transcode,
+			MessageQueueURL: os.Getenv("MESSAGE_QUEUE"),
+			Exchange:        constant.TranscodingExchange,
+			RoutingKey:      constant.TranscodeRoutingKey,
 		}
 		fmt.Println("Setting up transcoding handler")
 		transcodingJobHandler := handlers.NewTranscodingJobHandler(transcodingConfig, converterClient, uploadDownloader, cleaner, transcodingClient)
@@ -46,8 +48,9 @@ func main() {
 
 	go func() {
 		analyzingConfig := types.MessageQueueConfig{
-			MessageQueueURL: os.Getenv("message_queue"),
-			Topic:           channels.Analyze,
+			MessageQueueURL: os.Getenv("MESSAGE_QUEUE"),
+			Exchange:        constant.AnalyzingExchange,
+			RoutingKey:      constant.AnalyzeRoutingKey,
 		}
 
 		fmt.Println("Setting up analyzing job handler")

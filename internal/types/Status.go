@@ -2,11 +2,12 @@ package types
 
 type TranscodingStatus = string
 
+/**
+ * TranscodingStatus is the status of a transcoding job.
+ */
 const (
-	Pending             TranscodingStatus = "pending"
-	Transcoding         TranscodingStatus = "transcoding"
-	TranscodingFinished TranscodingStatus = "transcodeFinished"
-	PendingUpload       TranscodingStatus = "pendingUpload"
-	Uploaded            TranscodingStatus = "uploaded"
-	Success             TranscodingStatus = "success"
+	PENDING    TranscodingStatus = "PENDING"
+	PROCESSING TranscodingStatus = "PROCESSING"
+	COMPLETED  TranscodingStatus = "COMPLETED"
+	FAILED     TranscodingStatus = "FAILED"
 )
