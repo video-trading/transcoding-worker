@@ -4,3 +4,5 @@ converted
 .DS_Store
 cover
 coverted
+*.plist
+*.xcframework
