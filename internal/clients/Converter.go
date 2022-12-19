@@ -39,6 +39,7 @@ func (f *Converter) getArgs() (map[string]interface{}, error) {
 	// check if it is running in test mode
 	if runtime.GOOS == types.MacOS {
 		m["c:v"] = "h264_videotoolbox"
+		m["b:v"] = f.getByteRates(f.resolution)
 	}
 
 	m["vf"] = f.getResolution(f.resolution)
@@ -50,6 +51,25 @@ func (f *Converter) getArgs() (map[string]interface{}, error) {
 // getResolution will generate a ffmpeg resolution based on the system
 func (f *Converter) getResolution(resolution types.Resolution) string {
 	return fmt.Sprintf("scale=-1:%s", resolution)
+}
+
+func (f *Converter) getByteRates(resolution types.Resolution) string {
+	switch resolution {
+	case types.Resolution2160p:
+		return "12000k"
+	case types.Resolution1080p:
+		return "8000k"
+	case types.Resolution720p:
+		return "4000k"
+	case types.Resolution480p:
+		return "2000k"
+	case types.Resolution360p:
+		return "1000k"
+	case types.Resolution240p:
+		return "500k"
+	default:
+		return "8000k"
+	}
 }
 
 // Convert input file to an output file and returns the output filename
