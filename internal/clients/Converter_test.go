@@ -123,3 +123,44 @@ func TestConverter_getOutputName(t *testing.T) {
 		})
 	}
 }
+
+func TestConverter_getByteRates(t *testing.T) {
+	type fields struct {
+		resolution types.Resolution
+		config     types.ConverterConfig
+	}
+	type args struct {
+		resolution types.Resolution
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   string
+	}{
+		{
+			"Get byte rates 1080p",
+			fields{
+				resolution: types.Resolution1080p,
+				config: types.ConverterConfig{
+					OutputFolder: "/tmp",
+				},
+			},
+			args{
+				resolution: types.Resolution1080p,
+			},
+			"8000k",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &Converter{
+				resolution: tt.fields.resolution,
+				config:     tt.fields.config,
+			}
+			if got := f.getByteRates(tt.args.resolution); got != tt.want {
+				t.Errorf("getByteRates() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
