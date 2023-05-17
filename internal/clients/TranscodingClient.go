@@ -77,3 +77,29 @@ func (t *TranscodingClient) SubmitAnalyzingResult(analyzingResult *types.Analyzi
 
 	return nil
 }
+
+// SubmitFailedAnalyzingResult Submit failed analyzing result to the transcoding service
+func (t *TranscodingClient) SubmitFailedAnalyzingResult(videoId string) error {
+	requestURL := fmt.Sprintf("%s/video/%s/analyzing/failed", t.config.URL, videoId)
+
+	// Send http request with JWT token
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", requestURL, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.config.JWTToken))
+	req.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != http.StatusCreated {
+		content, _ := io.ReadAll(response.Body)
+		err := fmt.Errorf("get status %s with error %s", response.Status, content)
+		return err
+	}
+
+	return nil
+}

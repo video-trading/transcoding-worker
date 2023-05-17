@@ -5,6 +5,7 @@ import (
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+	"video_transcoding_worker/internal/constant"
 
 	"video_transcoding_worker/internal/clients"
 	"video_transcoding_worker/internal/types"
@@ -72,6 +73,14 @@ func (m *TranscodingJobHandler) Run() {
 			log.Println("Receiving a transcoding job")
 			if m.handle(d, body) {
 				log.Printf("Failed to handle message: %s", d.MessageId)
+				count := d.Headers["x-delivery-count"]
+				countInt, ok := count.(int64)
+				if ok {
+					if countInt == constant.MaxRetry {
+						//TODO: notify the server that the job is failed
+						log.Printf("Max retry reached for message: %s", d.MessageId)
+					}
+				}
 				d.Nack(false, true)
 			} else {
 				d.Ack(false)
