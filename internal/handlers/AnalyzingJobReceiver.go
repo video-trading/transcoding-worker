@@ -3,11 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-
 	amqp "github.com/rabbitmq/amqp091-go"
-
+	"log"
 	"video_transcoding_worker/internal/clients"
+	"video_transcoding_worker/internal/constant"
 	"video_transcoding_worker/internal/types"
 )
 
@@ -61,10 +60,25 @@ func (m *AnalyzingJobHandler) Run() {
 
 	go func() {
 		for d := range msgs {
+			// check retry count
 			log.Println("Receiving analyzing job")
 			body := d.Body
-			if m.handle(body) {
+			failed, videoId := m.handle(body)
+			if failed {
 				log.Printf("Failed to handle message: %s", d.MessageId)
+				count := d.Headers["x-delivery-count"]
+				countInt, ok := count.(int64)
+				if ok {
+					if countInt == constant.MaxRetry {
+						//TODO: notify the server that the job is failed
+						log.Printf("Max retry reached for message: %s", d.MessageId)
+						err := m.transcodingClient.SubmitFailedAnalyzingResult(videoId)
+						if err != nil {
+							log.Printf("Failed to submit failed analyzing result: %s", err)
+							return
+						}
+					}
+				}
 				// request to retry
 				err = d.Nack(false, true)
 				if err != nil {
@@ -83,8 +97,8 @@ func (m *AnalyzingJobHandler) Run() {
 	<-forever
 }
 
-// handle handles the message and will return true if there is an error
-func (m *AnalyzingJobHandler) handle(body []byte) bool {
+// handle handles the message and will return true if there is an error and return the video id
+func (m *AnalyzingJobHandler) handle(body []byte) (bool, string) {
 	var data types.AnalyzingJob
 
 	// path for the cover
@@ -103,38 +117,38 @@ func (m *AnalyzingJobHandler) handle(body []byte) bool {
 	err := json.Unmarshal(body, &data)
 	if err != nil {
 		fmt.Printf("Cannot decode: %s", err)
-		return true
+		return true, ""
 	}
 	// download file
 	videoPath, err = m.uploadDownloader.Download(data.Video.PreviewUrl)
 	if err != nil {
 		log.Printf("Cannot download video: %s\n", err)
-		return true
+		return true, data.VideoId
 	}
 	analyzingResult, err := m.analyzer.Analyze(videoPath, data.VideoId, data.Video.Key)
 	if err != nil {
 		log.Printf("Cannot analyze video: %s\n", err)
-		return true
+		return true, data.VideoId
 	}
 
 	fmt.Printf("Analyzing result: %v\n", analyzingResult)
 	coverPath = analyzingResult.Cover
 	if err != nil {
 		log.Printf("Cannot analyze video: %s\n", err)
-		return true
+		return true, data.VideoId
 	}
 
 	err = m.uploadDownloader.Upload(data.Thumbnail.Url, analyzingResult.Cover)
 	if err != nil {
 		log.Printf("Cannot upload cover: %s\n", err)
-		return true
+		return true, data.VideoId
 	}
 
 	err = m.transcodingClient.SubmitAnalyzingResult(analyzingResult)
 	if err != nil {
 		log.Printf("Cannot submit analyzing result: %s\n", err)
-		return true
+		return true, data.VideoId
 	}
 	log.Printf("Finished analyzing job\n")
-	return false
+	return false, data.VideoId
 }

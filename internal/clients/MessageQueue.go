@@ -2,6 +2,7 @@ package clients
 
 import (
 	"log"
+	"video_transcoding_worker/internal/constant"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 
@@ -46,6 +47,12 @@ func (c *MessageQueue) Init(name string) (*amqp.Connection, *amqp.Channel, amqp.
 		log.Fatalf("Failed to declare an exchange: %s", err)
 	}
 
+	// maximum retry limit is set to 3
+	args := amqp.Table{
+		"x-queue-type":     "quorum",
+		"x-delivery-limit": constant.MaxRetry,
+	}
+
 	// declare the queue
 	q, err := ch.QueueDeclare(
 		name,  // name
@@ -53,7 +60,7 @@ func (c *MessageQueue) Init(name string) (*amqp.Connection, *amqp.Channel, amqp.
 		false, // delete when unused
 		false, // exclusive
 		false, // no-wait
-		nil,   // arguments
+		args,  // arguments
 	)
 
 	if err != nil {
